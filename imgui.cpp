@@ -431,6 +431,9 @@ CODE
  When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all imgui files.
  You can read releases logs https://github.com/ocornut/imgui/releases for more details.
 
+ - 2025/05/15 (1.92.0) - TreeNode: renamed ImGuiTreeNodeFlags_NavLeftJumpsBackHere to ImGuiTreeNodeFlags_NavLeftJumpsToParent for clarity. Kept inline redirection enum (will obsolete).
+ - 2025/05/15 (1.92.0) - Commented out PushAllowKeyboardFocus()/PopAllowKeyboardFocus() which was obsoleted in 1.89.4. Use PushItemFlag(ImGuiItemFlags_NoTabStop, !tab_stop)/PopItemFlag() instead. (#3092)
+ - 2025/05/15 (1.92.0) - Commented out ImGuiListClipper::ForceDisplayRangeByIndices() which was obsoleted in 1.89.6. Use ImGuiListClipper::IncludeItemsByIndex() instead.
  - 2025/03/05 (1.91.9) - BeginMenu(): Internals: reworked mangling of menu windows to use "###Menu_00" etc. instead of "##Menu_00", allowing them to also store the menu name before it. This shouldn't affect code unless directly accessing menu window from their mangled name.
  - 2025/02/27 (1.91.9) - Image(): removed 'tint_col' and 'border_col' parameter from Image() function. Added ImageWithBg() replacement. (#8131, #8238)
                             - old: void Image      (ImTextureID tex_id, ImVec2 image_size, ImVec2 uv0 = (0,0), ImVec2 uv1 = (1,1), ImVec4 tint_col = (1,1,1,1), ImVec4 border_col = (0,0,0,0));
@@ -12801,7 +12804,7 @@ void ImGui::NavMoveRequestResolveWithLastItem(ImGuiNavItemData* result)
     NavUpdateAnyRequestFlag();
 }
 
-// Called by TreePop() to implement ImGuiTreeNodeFlags_NavLeftJumpsBackHere
+// Called by TreePop() to implement ImGuiTreeNodeFlags_NavLeftJumpsToParent
 void ImGui::NavMoveRequestResolveWithPastTreeNode(ImGuiNavItemData* result, const ImGuiTreeNodeStackData* tree_node_data)
 {
     ImGuiContext& g = *GImGui;
@@ -15491,6 +15494,18 @@ static void MetricsHelpMarker(const char* desc)
 // [DEBUG] List fonts in a font atlas and display its texture
 void ImGui::ShowFontAtlas(ImFontAtlas* atlas)
 {
+    ImGuiContext& g = *GImGui;
+
+    Text("Read ");
+    SameLine(0, 0);
+    TextLinkOpenURL("https://www.dearimgui.com/faq/");
+    SameLine(0, 0);
+    Text(" for details on font loading.");
+
+    ImGuiMetricsConfig* cfg = &g.DebugMetricsConfig;
+    Checkbox("Show font preview", &cfg->ShowFontPreview);
+
+    // Font list
     for (ImFont* font : atlas->Fonts)
     {
         PushID(font);
@@ -15499,7 +15514,6 @@ void ImGui::ShowFontAtlas(ImFontAtlas* atlas)
     }
     if (TreeNode("Font Atlas", "Font Atlas (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
     {
-        ImGuiContext& g = *GImGui;
         PushStyleVar(ImGuiStyleVar_ImageBorderSize, ImMax(1.0f, g.Style.ImageBorderSize));
         ImageWithBg(atlas->TexID, ImVec2((float)atlas->TexWidth, (float)atlas->TexHeight), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
         PopStyleVar();
@@ -16290,6 +16304,8 @@ void ImGui::DebugNodeDrawCmdShowMeshAndBoundingBox(ImDrawList* out_draw_list, co
 // [DEBUG] Display details for a single font, called by ShowStyleEditor().
 void ImGui::DebugNodeFont(ImFont* font)
 {
+    ImGuiContext& g = *GImGui;
+    ImGuiMetricsConfig* cfg = &g.DebugMetricsConfig;
     bool opened = TreeNode(font, "Font: \"%s\": %.2f px, %d glyphs, %d sources(s)",
         font->Sources ? font->Sources[0].Name : "", font->FontSize, font->Glyphs.Size, font->SourcesCount);
 
@@ -16297,9 +16313,12 @@ void ImGui::DebugNodeFont(ImFont* font)
     if (!opened)
         Indent();
     Indent();
-    PushFont(font);
-    Text("The quick brown fox jumps over the lazy dog");
-    PopFont();
+    if (cfg->ShowFontPreview)
+    {
+        PushFont(font);
+        Text("The quick brown fox jumps over the lazy dog");
+        PopFont();
+    }
     if (!opened)
     {
         Unindent();
